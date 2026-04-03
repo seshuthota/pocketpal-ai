@@ -14,7 +14,7 @@ import {
 } from 'react-native-gesture-handler';
 
 import {uiStore} from './src/store';
-import {useTheme} from './src/hooks';
+import {useTheme, monitorAutomationStalls} from './src/hooks';
 import {useDeepLinking} from './src/hooks/useDeepLinking';
 import {Theme} from './src/utils/types';
 
@@ -52,6 +52,13 @@ const screenWidth = Dimensions.get('window').width;
 // Component that handles deep linking - must be inside NavigationContainer
 const DeepLinkHandler = () => {
   useDeepLinking();
+
+  React.useEffect(() => {
+    // Monitor for automation stalls every minute
+    const interval = setInterval(monitorAutomationStalls, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   return null;
 };
 

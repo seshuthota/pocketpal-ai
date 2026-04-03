@@ -48,6 +48,9 @@
     "deviceSelectionIOS": "Device (Metal)",
     "deviceSelectionIOSDescription": "Choose Metal GPU or CPU-only mode",
     "deviceSelectionAndroidDescription": "Select compute device (CPU, GPU, or Hexagon NPU)",
+    "runtimeProfile": "Runtime Profile",
+    "runtimeProfileDescription": "Apply measured presets for this hardware. Interactive is the default stable path; Throughput favors Adreno OpenCL.",
+    "runtimeProfileCustom": "Custom settings active.",
     "cpuOnlyNoAccelerators": "CPU only - No hardware accelerators detected",
     "contextSize": "Context Size",
     "contextSizePlaceholder": "Enter context size (min {{minContextSize}})",
@@ -76,6 +79,7 @@
     "valueCacheType": "Value Cache Type",
     "valueCacheTypeDescription": "Select the cache type for value computation",
     "valueCacheTypeDisabledDescription": "Enable Flash Attention to change cache type",
+    "turboQuantStabilityWarning": "Note: TurboQuant is only stable on CPU. Choosing GPU will trigger an automatic fallback to CPU.",
     "memorySettings": "Memory Settings",
     "useMlock": "Use Memory Lock",
     "useMlockDescription": "Force system to keep model in RAM rather than swapping or compressing",
@@ -290,7 +294,8 @@
         "multiple": "{{count}} Warnings"
       },
       "labels": {
-        "downloadSpeed": "{{speed}}"
+        "downloadSpeed": "{{speed}}",
+        "recommendedForDevice": "Recommended"
       }
     },
     "search": {

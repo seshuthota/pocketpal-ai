@@ -72,6 +72,12 @@ import {
 import NativeHardwareInfo from '../specs/NativeHardwareInfo';
 import {getModelMemoryRequirement} from '../utils/memoryEstimator';
 import {loadLlamaModelInfo} from 'llama.rn';
+import {
+  getHardwareRoutingDecisionForModel,
+  getHardwareOptimizedDeviceConfig,
+  shouldApplyHardwareProfileDefaults,
+  shouldAutoRouteHardwareProfile,
+} from '../utils/hardwareProfiles';
 
 /**
  * Factory function to create a Model object for a remote model from an OpenAI-compatible server.
@@ -404,13 +410,32 @@ class ModelStore {
     });
   };
 
+  replaceContextInitParams = (params: ContextInitParams) => {
+    runInAction(() => {
+      this.contextInitParams = {
+        ...params,
+      };
+    });
+  };
+
   /**
    * Get effective context initialization parameters with constraints applied
    * This is the unified method that replaces both getEffectiveBatchValues and getEffectiveInitSettings
    */
   getEffectiveContextInitParams = async (
     filePath?: string,
+    model?: Model,
   ): Promise<Omit<ContextParams, 'model'>> => {
+    const optimizedConfig = await getHardwareOptimizedDeviceConfig();
+    const shouldAutoRoute =
+      !!model &&
+      !!optimizedConfig &&
+      shouldAutoRouteHardwareProfile(this.contextInitParams, optimizedConfig);
+    const hardwareRoutingDecision =
+      model && optimizedConfig && shouldAutoRoute
+        ? getHardwareRoutingDecisionForModel(model, optimizedConfig)
+        : null;
+
     // Apply batch constraints
     const effectiveContext = this.contextInitParams.n_ctx;
     const effectiveBatch = Math.min(
@@ -451,11 +476,16 @@ class ModelStore {
       n_batch: effectiveBatch,
       n_ubatch: effectiveUBatch,
       n_threads: this.contextInitParams.n_threads,
-      flash_attn_type, // NEW: replaces flash_attn boolean
+      flash_attn_type:
+        hardwareRoutingDecision?.default_flash_attn_type ?? flash_attn_type, // NEW: replaces flash_attn boolean
       cache_type_k: this.contextInitParams.cache_type_k,
       cache_type_v: this.contextInitParams.cache_type_v,
-      n_gpu_layers: this.contextInitParams.n_gpu_layers ?? 99,
-      devices: this.contextInitParams.devices, // NEW
+      n_gpu_layers:
+        hardwareRoutingDecision?.n_gpu_layers ??
+        this.contextInitParams.n_gpu_layers ??
+        99,
+      devices:
+        hardwareRoutingDecision?.devices ?? this.contextInitParams.devices, // NEW
       kv_unified: this.contextInitParams.kv_unified ?? true, // NEW (default true!)
       n_parallel: this.contextInitParams.n_parallel ?? 1, // NEW (1 for blocking mode only)
       use_mlock: this.contextInitParams.use_mlock,
@@ -463,7 +493,33 @@ class ModelStore {
       no_extra_bufts: this.contextInitParams.no_extra_bufts,
     };
 
+    // Guardrail: Fallback to CPU if TurboQuant is selected with non-CPU backend on Android (unstable)
+    if (Platform.OS === 'android') {
+      const isTurboQuant = [
+        'turbo2_0',
+        'turbo3_0',
+        'turbo4_0',
+      ].some(t => params.cache_type_k === t || params.cache_type_v === t);
+      
+      if (isTurboQuant) {
+        const usesNonCpu = params.devices && params.devices.some(d => d !== 'CPU');
+        if (usesNonCpu) {
+          console.warn(
+            '[ModelStore] TurboQuant is currently unstable on GPU backends. Falling back to CPU for stability.',
+          );
+          params.devices = ['CPU'];
+          params.n_gpu_layers = 0;
+        }
+      }
+    }
+
     // Remove undefined values from the params object
+    if (hardwareRoutingDecision) {
+      console.log(
+        `[ModelStore] Auto-routed ${model?.filename} to ${hardwareRoutingDecision.backend.toUpperCase()} (${hardwareRoutingDecision.reason})`,
+      );
+    }
+
     return Object.fromEntries(
       Object.entries(params).filter(([_, value]) => value !== undefined),
     ) as Omit<ContextParams, 'model'>;
@@ -1544,8 +1600,10 @@ class ModelStore {
 
     // Get all effective initialization settings BEFORE try block
     // so they're available for error reporting if initialization fails
-    const effectiveSettings =
-      await this.getEffectiveContextInitParams(filePath);
+    const effectiveSettings = await this.getEffectiveContextInitParams(
+      filePath,
+      model,
+    );
 
     try {
       // Create properly versioned ContextInitParams
@@ -2237,7 +2295,10 @@ class ModelStore {
   };
 
   private async initializeGpuSettings() {
-    const gpuCapabilities = await checkGpuSupport();
+    const [gpuCapabilities, optimizedConfig] = await Promise.all([
+      checkGpuSupport(),
+      getHardwareOptimizedDeviceConfig(),
+    ]);
 
     // If GPU is not supported but currently enabled, disable it
     if (
@@ -2252,7 +2313,21 @@ class ModelStore {
         };
       });
     }
-    // If GPU is supported, the persisted value will be used
+
+    if (
+      optimizedConfig &&
+      shouldApplyHardwareProfileDefaults(this.contextInitParams)
+    ) {
+      runInAction(() => {
+        this.contextInitParams = {
+          ...this.contextInitParams,
+          devices: optimizedConfig.devices,
+          n_gpu_layers: optimizedConfig.n_gpu_layers,
+          flash_attn_type: optimizedConfig.default_flash_attn_type,
+          no_gpu_devices: false,
+        };
+      });
+    }
   }
 
   setNoGpuDevices = (no_gpu_devices: boolean) => {
@@ -2266,10 +2341,16 @@ class ModelStore {
 
   // New v2.0 setters
   setDevices = (devices: string[] | undefined) => {
+    const cpuOnly =
+      !!devices &&
+      devices.length > 0 &&
+      devices.every(device => device === 'CPU');
+
     runInAction(() => {
       this.contextInitParams = {
         ...this.contextInitParams,
         devices,
+        no_gpu_devices: cpuOnly,
       };
     });
   };

@@ -561,7 +561,10 @@ export interface LegacyContextInitParams {
     | 'q4_1'
     | 'iq4_nl'
     | 'q5_0'
-    | 'q5_1';
+    | 'q5_1'
+    | 'turbo2_0'
+    | 'turbo3_0'
+    | 'turbo4_0';
   cache_type_v:
     | 'f16'
     | 'f32'
@@ -570,7 +573,10 @@ export interface LegacyContextInitParams {
     | 'q4_1'
     | 'iq4_nl'
     | 'q5_0'
-    | 'q5_1';
+    | 'q5_1'
+    | 'turbo2_0'
+    | 'turbo3_0'
+    | 'turbo4_0';
   n_gpu_layers: number;
   use_mlock?: boolean;
   use_mmap?: boolean;
@@ -603,6 +609,63 @@ export interface BenchmarkResult {
   uuid: string;
   submitted?: boolean;
   initSettings?: ContextInitParams | LegacyContextInitParams;
+  selectedBackend?: 'metal' | 'opencl' | 'hexagon' | 'cpu' | 'blas';
+  requestedBackend?: BenchmarkBackendTarget;
+  hardwareProfileId?: string;
+  hardwareProfileLabel?: string;
+  modelQuantization?: string;
+  routingMode?: 'auto' | 'manual';
+  runtimeGpu?: boolean;
+  runtimeReasonNoGPU?: string;
+  runtimeDevices?: string[];
+  debugAutomationCommandId?: string;
+}
+
+export type BenchmarkBackendTarget =
+  | 'auto'
+  | 'metal'
+  | 'opencl'
+  | 'hexagon'
+  | 'cpu'
+  | 'blas';
+
+export interface BenchmarkAutomationCommand {
+  id: string;
+  sourceUrl: string;
+  modelId?: string;
+  filename?: string;
+  backend: BenchmarkBackendTarget;
+  timeout_ms?: number;
+  config: BenchmarkConfig;
+  overrides?: Partial<
+    Pick<
+      ContextInitParams,
+      | 'n_ctx'
+      | 'n_batch'
+      | 'n_ubatch'
+      | 'n_threads'
+      | 'n_gpu_layers'
+      | 'flash_attn_type'
+      | 'cache_type_k'
+      | 'cache_type_v'
+      | 'kv_unified'
+      | 'n_parallel'
+      | 'image_max_tokens'
+      | 'use_mlock'
+      | 'use_mmap'
+      | 'no_extra_bufts'
+    >
+  >;
+}
+
+export interface BenchmarkAutomationStatus {
+  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  command: BenchmarkAutomationCommand;
+  timestamp: string;
+  outputPath?: string;
+  error?: string;
+  result?: BenchmarkResult;
+  deviceInfo?: DeviceInfo;
 }
 
 export type DeviceInfo = {
@@ -655,4 +718,7 @@ export enum CacheType {
   IQ4_NL = 'iq4_nl',
   Q5_0 = 'q5_0',
   Q5_1 = 'q5_1',
+  TURBO2_0 = 'turbo2_0',
+  TURBO3_0 = 'turbo3_0',
+  TURBO4_0 = 'turbo4_0',
 }
