@@ -348,6 +348,8 @@ export function getHardwareRuntimeProfiles(
       devices: ['CPU'],
       n_gpu_layers: 0,
       flash_attn_type: 'off',
+      cache_type_k: 'f16',
+      cache_type_v: 'f16',
       n_ctx: 8192,
       n_batch: 128,
       n_ubatch: 64,

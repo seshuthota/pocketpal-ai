@@ -44,8 +44,8 @@ export const createContextInitParams = (
     n_batch: params.n_batch ?? 512,
     n_ubatch: params.n_ubatch ?? 512,
     n_threads: params.n_threads ?? 4,
-    cache_type_k: params.cache_type_k ?? 'f16',
-    cache_type_v: params.cache_type_v ?? 'f16',
+    cache_type_k: params.cache_type_k ?? 'turbo4_0',
+    cache_type_v: params.cache_type_v ?? 'turbo4_0',
     n_gpu_layers: params.n_gpu_layers ?? 99, // Changed default from 0 to 99
     use_mlock: params.use_mlock ?? false,
 
