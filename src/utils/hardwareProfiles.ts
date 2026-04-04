@@ -42,6 +42,7 @@ export interface HardwareRuntimeProfile {
   flash_attn_type: 'off' | 'on' | 'auto';
   cache_type_k?: string;
   cache_type_v?: string;
+  n_ctx?: number;
   n_batch: number;
   n_ubatch: number;
   n_threads: number;
@@ -347,6 +348,7 @@ export function getHardwareRuntimeProfiles(
       devices: ['CPU'],
       n_gpu_layers: 0,
       flash_attn_type: 'off',
+      n_ctx: 8192,
       n_batch: 128,
       n_ubatch: 64,
       n_threads: 6,
@@ -371,6 +373,7 @@ export function getHardwareRuntimeProfiles(
       flash_attn_type: 'on',
       cache_type_k: 'turbo4_0',
       cache_type_v: 'turbo4_0',
+      n_ctx: 65536,
       n_batch: 128,
       n_ubatch: 64,
       n_threads: 6,
@@ -386,6 +389,7 @@ export function getMatchingHardwareRuntimeProfile(
     | 'flash_attn_type'
     | 'cache_type_k'
     | 'cache_type_v'
+    | 'n_ctx'
     | 'n_batch'
     | 'n_ubatch'
     | 'n_threads'
@@ -405,6 +409,7 @@ export function getMatchingHardwareRuntimeProfile(
       (params.flash_attn_type ?? 'off') === profile.flash_attn_type &&
       params.cache_type_k === profile.cache_type_k &&
       params.cache_type_v === profile.cache_type_v &&
+      (profile.n_ctx === undefined || params.n_ctx === profile.n_ctx) &&
       params.n_batch === profile.n_batch &&
       params.n_ubatch === profile.n_ubatch &&
       params.n_threads === profile.n_threads
@@ -425,6 +430,7 @@ export function applyHardwareRuntimeProfile(
     flash_attn_type: runtimeProfile.flash_attn_type,
     cache_type_k: runtimeProfile.cache_type_k,
     cache_type_v: runtimeProfile.cache_type_v,
+    n_ctx: runtimeProfile.n_ctx ?? baseParams.n_ctx,
     n_batch: runtimeProfile.n_batch,
     n_ubatch: runtimeProfile.n_ubatch,
     n_threads: runtimeProfile.n_threads,
