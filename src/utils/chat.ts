@@ -123,6 +123,8 @@ export async function applyChatTemplate(
     'tokenizer.chat_template'
   ];
 
+  console.log('[Chat] Resolving template. Model template:', !!modelChatTemplate?.chatTemplate, 'Context template:', !!contextChatTemplate);
+
   let formattedChat: string | JinjaFormattedChatResult | undefined;
 
   try {
@@ -248,6 +250,13 @@ export const chatTemplates: Record<string, ChatTemplateConfig> = {
     systemPrompt:
       'You are Qwen, created by Alibaba Cloud. You are a helpful assistant.',
   },
+  qwen35: {
+    ...Templates.templates.qwen25,
+    name: 'qwen35',
+    addGenerationPrompt: true,
+    systemPrompt:
+      'You are Qwen 3.5, a large language model trained by Alibaba Cloud. You are a helpful assistant.',
+  },
   smolLM: {
     name: 'smolLM',
     addGenerationPrompt: true,
@@ -284,17 +293,28 @@ export function getHFDefaultSettings(hfModel: HuggingFaceModel): {
   chatTemplate: ChatTemplateConfig;
   completionParams: CompletionParams;
 } {
-  const _defaultChatTemplate = {
-    addBosToken: false, // It is expected that chat templates will take care of this
-    addEosToken: false, // It is expected that chat templates will take care of this
+  const isQwen = hfModel.id.toLowerCase().includes('qwen');
+  const isGemma = hfModel.id.toLowerCase().includes('gemma');
+  
+  const _defaultChatTemplate: ChatTemplateConfig = {
+    addBosToken: false,
+    addEosToken: false,
     bosToken: hfModel.specs?.gguf?.bos_token ?? '',
     eosToken: hfModel.specs?.gguf?.eos_token ?? '',
-    //chatTemplate: hfModel.specs?.gguf?.chat_template ?? '',
-    chatTemplate: '', // At the moment chatTemplate needs to be nunjucks, not jinja2. So by using empty string we force the use of gguf's chat template.
+    chatTemplate: '', // Default to empty to try native GGUF template first
     addGenerationPrompt: true,
     systemPrompt: '',
     name: 'custom',
   };
+
+  // If it's a known architecture, provide a fallback template instead of just empty
+  if (isQwen) {
+    _defaultChatTemplate.chatTemplate = chatTemplates.qwen25.chatTemplate;
+    _defaultChatTemplate.name = 'qwen25';
+  } else if (isGemma) {
+    _defaultChatTemplate.chatTemplate = chatTemplates.gemmaIt.chatTemplate;
+    _defaultChatTemplate.name = 'gemmaIt';
+  }
 
   const _defaultCompletionParams = {
     ...defaultCompletionParams,
